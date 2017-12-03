@@ -47,7 +47,7 @@ namespace system
     discriptor_set(2, 0, 0xFFFFFFFF, 0x92, 0xC);
 
     // Flush old GDT and load new GDT
-    GDT_flush();
+    //GDT_flush();
   }
 
 }
