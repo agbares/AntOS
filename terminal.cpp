@@ -1,6 +1,6 @@
 #include "terminal.h"
 
-volatile uint16_t* VGABuffer = (uint16_t*) 0xB8000;
+volatile uint16_t* VGABuffer = (uint16_t*) 0xC00B8000;
 const int VGA_COLS = 80;
 const int VGA_ROWS = 25;
 

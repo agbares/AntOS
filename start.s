@@ -1,5 +1,6 @@
 .extern kernel_main
 .global start
+.global _start
 .global .GDT_flush
 .extern _ZN6system7GDT_ptrE // GDT_ptr
 
@@ -13,6 +14,11 @@
   .long MB_MAGIC
   .long MB_FLAGS
   .long MB_CHECKSUM
+
+// Base of higher-half kernel
+.equ KERNEL_VIRTUAL_BASE, 0xC0000000
+// Page Table index in virtual memory
+.equ KERNEL_PAGE_NUMBER, (KERNEL_VIRTUAL_BASE >> 22)
 
 .section .bss
   .align 16
@@ -32,18 +38,68 @@
   GDT_pointer:
     .byte 24, 0, 0, 0, 0, 0
 
+  .align 4096
+  BootPageDirectoryVirtualAddress:
+    .long 0x00000083
+    .rept (KERNEL_PAGE_NUMBER - 1)
+      .long 0
+      .endr
+
+    .long 0x00000083
+    .rept (1024 - KERNEL_PAGE_NUMBER - 1)
+      .long 0
+    .endr
+
 .section .text
 
-  start:
-    mov $stack_top, %esp  // Set up stack pointer
-    call GDT_load
-    call Paging_setup
-    call kernel_main
 
-    hang:
-      cli
-      hlt
-      jmp hang
+  start:
+    .set _start, (start - 0xC0000000)
+    .set BootPageDirectoryPhysicalAddress, (BootPageDirectoryVirtualAddress - KERNEL_VIRTUAL_BASE)
+
+    mov $BootPageDirectoryPhysicalAddress, %ecx
+    mov %ecx, %cr3
+
+    // Set PSE bit in CR4 to enable 4MB pages
+    mov %cr4, %ecx
+    or $0x00000010, %ecx
+    mov %ecx, %cr4
+
+    // Set PG bit in CR0 to enable paging
+    mov %cr0, %ecx
+    or $0x80000000, %ecx
+    mov %ecx, %cr0
+
+    lea higher_half_start, %ecx
+    jmp *%ecx
+
+
+    // mov $stack_top - KERNEL_VIRTUAL_BASE, %esp  // Set up stack pointer
+    // call GDT_load
+    //call Paging_setup
+    //call Start_in_higher_half
+    // call kernel_main
+
+
+
+    // hang:
+    //   cli
+    //   hlt
+    //   jmp hang
+
+    higher_half_start:
+      // Unmap the identity map for the first 4 MB
+      // movl $0, (BootPageDirectoryVirtualAddress)
+      // invlpg (0)
+
+      // mov $stack_top, %esp
+
+      call kernel_main
+
+      hang:
+        cli
+        hlt
+        jmp hang
 
   // GDT Initialization
   GDT_load:
@@ -59,43 +115,63 @@
     mov %ax, %fs
     mov %ax, %gs
     mov %ax, %ss
-    jmp $0x08, $.CS_flush
+    jmp $0x08, $.CS_flush - KERNEL_VIRTUAL_BASE
 
   .CS_flush:
     ret
-
-  // Paging & Virtual Memory Setup
-  Paging_setup:
-
-    // Map virtual memory for physical address execution
-    lea Page_Table1, %eax
-    movl $7, %ebx           // Set Page Table flags
-    movl $(4 * 1024), %ecx
-
-    // Loop through each page table entry
-    .loop1:
-    mov %ebx, (%eax)
-    add $4, %eax
-    add $4096, %ebx
-    loop .loop1
-
-    lea Page_Table1, %ebx
-    lea Page_Directory, %edx
-    or $7, %ebx             // Set Page directory flags
-    mov $1024, %ecx
-
-    // Loop through each page directory entry
-    .loop3:
-    mov %ebx, (%edx)
-    add $4, %edx
-    add $4096, %ebx
-    loop .loop3
-
-    // Setup page directory
-    lea Page_Directory, %ecx
-    mov %ecx, %cr3
-
-    // Turn on Paging
-    mov %cr0, %ecx
-    or $0x80000000, %ecx
-    mov %ecx, %cr0
+  //
+  // // Paging & Virtual Memory Setup
+  // Paging_setup:
+  //
+  //   // Map virtual memory for physical address execution
+  //   lea Page_Table1 - KERNEL_VIRTUAL_BASE, %eax
+  //   movl $7, %ebx           // Set Page Table flags
+  //   movl $(4 * 1024), %ecx
+  //
+  //   // Loop through each page table entry
+  //   .loop1:
+  //   mov %ebx, (%eax)
+  //   add $4, %eax
+  //   add $4096, %ebx
+  //   loop .loop1
+  //
+  //   lea Page_Table1 - KERNEL_VIRTUAL_BASE, %eax
+  //   add $(KERNEL_PAGE_NUMBER * 1024 * 4), %eax
+  //   mov $7, %ebx
+  //   mov $(4 * 1024), %ecx
+  //
+  //   .loop2:
+  //   mov %ebx, (%eax)
+  //   add $4, %eax
+  //   add $4096, %ebx
+  //   loop .loop2
+  //
+  //   lea Page_Table1 - KERNEL_VIRTUAL_BASE, %ebx
+  //   lea Page_Directory - KERNEL_VIRTUAL_BASE, %edx
+  //   or $7, %ebx             // Set Page directory flags
+  //   mov $1024, %ecx
+  //
+  //   // Loop through each page directory entry
+  //   .loop3:
+  //   mov %ebx, (%edx)
+  //   add $4, %edx
+  //   add $4096, %ebx
+  //   loop .loop3
+  //
+  //   // Setup page directory
+  //   lea Page_Directory - KERNEL_VIRTUAL_BASE, %ecx
+  //   mov %ecx, %cr3
+  //
+  //   // Turn on Paging
+  //   mov %cr0, %ecx
+  //   or $0x80000000, %ecx
+  //   mov %ecx, %cr0
+  //
+  //   ret
+  //
+  // Start_in_higher_half:
+  //   lea .higherhalf, %ecx
+  //   jmp %ecx
+  //
+  //   .higherhalf:
+  //     ret

@@ -19,9 +19,9 @@ void kernel_main()
 
   terminal_print("Hello, World!\n\0");
   terminal_print("Welcome to the kernel.\n\0");
-  // terminal_print("Setting up GDT...\n\0");
-  //
-  // system::GDT_init();
+  terminal_print("Setting up GDT...\n\0");
+
+  system::GDT_init();
   //
   // terminal_print("Complete\n\0");
 

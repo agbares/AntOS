@@ -1,33 +1,42 @@
-CC = i386-elf-g++
-AS = i386-elf-gcc
+CXX = i386-elf-g++
+CC = i386-elf-gcc
+# AS = i386-elf-gcc
+AS = nasm
 CFLAGS = -std=c++11 -ffreestanding -O2 -Wall -Wextra -fno-exceptions -fno-rtti -c
-AFLAGS = -std=gnu99 -ffreestanding -c
+# AFLAGS = -std=gnu99 -ffreestanding -c
+AFLAGS = -f elf
 LDFLAGS = -ffreestanding -nostdlib -lgcc -T
 LINKSCRIPT = linker.ld
-OBJ = start.o kernel.o terminal.o CString.o system/GDT.o
+OBJ = start_intel.o kernel.o terminal.o CString.o system/GDT.o
 EXECUTABLE = kernel.elf
 
 all: $(EXECUTABLE)
 
 $(EXECUTABLE): $(OBJ)
-	$(AS) $(LDFLAGS) $(LINKSCRIPT) $(OBJ) -o $@
+	$(CC) $(LDFLAGS) $(LINKSCRIPT) $(OBJ) -o $@
 
-start.o: start.s
-	$(AS) $(AFLAGS) start.s -o $@
+# start.o: start.s
+# 	$(AS) $(AFLAGS) start.s -o $@
+start_intel.o: start_intel.s
+	$(AS) $(AFLAGS) start_intel.s -o $@
 
 kernel.o: kernel.cpp
-	$(CC) $(CFLAGS) kernel.cpp -o $@
+	$(CXX) $(CFLAGS) kernel.cpp -o $@
 
 terminal.o: terminal.h terminal.cpp
-	$(CC) $(CFLAGS) terminal.cpp -o $@
+	$(CXX) $(CFLAGS) terminal.cpp -o $@
 
 CString.o: CString.h CString.cpp
-	$(CC) $(CFLAGS) CString.cpp -o $@
+	$(CXX) $(CFLAGS) CString.cpp -o $@
 
 system/GDT.o: system/GDT.h system/GDT.cpp
-	$(CC) $(CFLAGS) system/GDT.cpp -o $@
+	$(CXX) $(CFLAGS) system/GDT.cpp -o $@
 
 .PHONY: clean
 
 clean:
-	rm *.o
+	rm *.o kernel.elf
+
+run:
+	qemu-system-i386 -kernel $(EXECUTABLE) -d cpu_reset,int -no-reboot
+
