@@ -1,4 +1,4 @@
-# Kernel-Dev
+# AntOS
 ## Building
 Run: `make`
 
