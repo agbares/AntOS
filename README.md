@@ -1,6 +1,6 @@
 # Kernel-Dev
 ## Building
-Run the build script: `bash build.bat`
+Run: `make`
 
 ## Running on QEMU
-Run the run script: `bash run.bat`
+Run `make run`
